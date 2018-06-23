@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>game-chess</title>
+	<style type="text/css">
+		.container {
+			display: flex;
+			justify-content: center;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<canvas id="chess"></canvas>
+	</div>
+	<script type="text/javascript" src="../dist/chess.min.js"></script>
+	<script type="text/javascript">
+		new Chess(document.getElementById("chess"))
+			.onError(function (e) {
+				alert(e.message);
+			});
+	</script>
+</body>
+
+</html>
