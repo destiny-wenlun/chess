@@ -4,6 +4,10 @@ class Board {
 	private static COL_COUNT = 9;
 	private static ROW_COUNT = 10;
 	private _canvas!: HTMLCanvasElement;
+	/**棋盘 */
+	private board!: HTMLCanvasElement;
+	/**标记点 */
+	private mark!: HTMLCanvasElement;
 	private options!: Option;
 	/**棋盘起点坐标，即左上角坐标 */
 	private boardStartPoint!: Point;
@@ -11,20 +15,29 @@ class Board {
 	private _cellSize!: number;
 
 	constructor(options: Option) {
+		this.board = document.createElement("canvas");
 		this._canvas = document.createElement("canvas");
 		let { width, height, padding } = options;
+		this.options = options;
 		this._canvas.width = width!;
 		this._canvas.height = height!;
+		this.board.width = width!;
+		this.board.height = height!;
 
 		//计算宽和高，取最小的那个作为单元格的宽高
 		this._cellSize = Math.min((width! - 2 * padding!) / (Board.COL_COUNT - 1), (height! - 2 * padding!) / (Board.ROW_COUNT - 1));
 		this.boardStartPoint = { x: (width! - 8 * this._cellSize) * 0.5, y: (height! - 9 * this._cellSize) * 0.5 };
-		this.draw();
+		this.mark = document.createElement("canvas");
+		this.mark.width = this._cellSize;
+		this.mark.height = this._cellSize;
+		this.drawBoard();
+		this.drawMark();
+		this.markPos();
 	}
 
-	private draw() {
+	private drawBoard() {
 		let { cellSize, boardStartPoint } = this;
-		let ctx = this._canvas.getContext("2d")!;
+		let ctx = this.board.getContext("2d")!;
 
 		ctx.beginPath();
 		//绘制行
@@ -124,6 +137,36 @@ class Board {
 		let h = this.pos2point(9, 0).y + borderPadding - y;
 		ctx.rect(x, y, w, h);
 		ctx.stroke();
+	}
+
+	private drawMark() {
+		let ctx = this.mark.getContext("2d")!;
+		//绘制选中效果
+		ctx.strokeStyle = "#969696";
+		ctx.lineWidth = 6;
+		let len = 10;
+		ctx.drawLine({ x: 0, y: 0 }, { x: len, y: 0 });
+		ctx.drawLine({ x: 0, y: 0 }, { x: 0, y: len });
+		ctx.drawLine({ x: this.cellSize, y: 0 }, { x: this.cellSize - len, y: 0 });
+		ctx.drawLine({ x: this.cellSize, y: 0 }, { x: this.cellSize, y: len });
+		ctx.drawLine({ x: 0, y: this.cellSize }, { x: 0, y: this.cellSize - len });
+		ctx.drawLine({ x: 0, y: this.cellSize }, { x: len, y: this.cellSize });
+		ctx.drawLine({ x: this.cellSize, y: this.cellSize }, { x: this.cellSize, y: this.cellSize - len });
+		ctx.drawLine({ x: this.cellSize, y: this.cellSize }, { x: this.cellSize - len, y: this.cellSize });
+		ctx.stroke();
+	}
+
+	/**标记某个位置 */
+	public markPos(p?: Pos) {
+		let ctx = this.canvas.getContext("2d")!;
+		let { width, height } = this.options;
+		ctx.clearRect(0, 0, width!, height!);
+		ctx.drawImage(this.board, 0, 0);
+		if (p) {
+			let point = this.pos2point(p.row, p.col);
+			let halfSize = this.cellSize * 0.5;
+			ctx.drawImage(this.mark, point.x - halfSize, point.y - halfSize);
+		}
 	}
 
 	/**从左上角开始，获取指定行、列序号的坐标位置，序号从0开始 */
