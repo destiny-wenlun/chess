@@ -3,6 +3,7 @@ import { CampType, PieceType } from './enum'
 import { Board } from './board'
 import { Piece } from './piece'
 import { Rule } from './rule';
+import { Ai } from './ai';
 
 /**象棋类 */
 class Chess {
@@ -18,8 +19,13 @@ class Chess {
 	private _pieces!: Array<Piece>;
 	/**规则 */
 	private rule!: Rule;
+	private ai!: Ai;
+	/**是否该自己走 */
+	private active: boolean = true;
 	/**记录上次被选中的棋子 */
 	private lastSelectedPiece: Piece | null = null;
+	/**记录敌方上一次选中的棋子 */
+	private enemyLastSelectedPiece: Piece | null = null;
 	private _onerror?: (msg: Error) => any;
 
 	constructor(canvas: HTMLCanvasElement, options?: Option) {
@@ -35,6 +41,7 @@ class Chess {
 		this.listener();
 		this.invalidate();
 		this.rule = new Rule(this._pieces, this.board);
+		this.ai = new Ai(this._pieces);
 	}
 
 	/**初始化默认参数 */
@@ -84,9 +91,22 @@ class Chess {
 			new Piece(CampType.RED, PieceType.RSHI, size, { row: 9, col: 5 }, true),
 			new Piece(CampType.RED, PieceType.SHUAI, size, { row: 9, col: 4 }, true),
 			//黑方
-			new Piece(CampType.BLACK, PieceType.JIANG, size, { row: 0, col: 4 }),
+			new Piece(CampType.BLACK, PieceType.ZU, size, { row: 3, col: 0 }),
+			new Piece(CampType.BLACK, PieceType.ZU, size, { row: 3, col: 2 }),
+			new Piece(CampType.BLACK, PieceType.ZU, size, { row: 3, col: 4 }),
+			new Piece(CampType.BLACK, PieceType.ZU, size, { row: 3, col: 6 }),
+			new Piece(CampType.BLACK, PieceType.ZU, size, { row: 3, col: 8 }),
+			new Piece(CampType.BLACK, PieceType.PAO, size, { row: 2, col: 1 }),
+			new Piece(CampType.BLACK, PieceType.PAO, size, { row: 2, col: 7 }),
 			new Piece(CampType.BLACK, PieceType.JU, size, { row: 0, col: 0 }),
+			new Piece(CampType.BLACK, PieceType.JU, size, { row: 0, col: 8 }),
 			new Piece(CampType.BLACK, PieceType.MA, size, { row: 0, col: 1 }),
+			new Piece(CampType.BLACK, PieceType.MA, size, { row: 0, col: 7 }),
+			new Piece(CampType.BLACK, PieceType.BXIANG, size, { row: 0, col: 2 }),
+			new Piece(CampType.BLACK, PieceType.BXIANG, size, { row: 0, col: 6 }),
+			new Piece(CampType.BLACK, PieceType.BSHI, size, { row: 0, col: 3 }),
+			new Piece(CampType.BLACK, PieceType.BSHI, size, { row: 0, col: 5 }),
+			new Piece(CampType.BLACK, PieceType.JIANG, size, { row: 0, col: 4 }),
 		];
 	}
 
@@ -100,9 +120,31 @@ class Chess {
 		}
 	}
 
+	/**切换该谁落子 */
+	private switch() {
+		if (this.active) {
+			//轮到电脑走了
+			this.active = false;
+			let { piece, pos, eatPiece } = this.ai.generate();
+			this.board.markPos(piece.pos);//在棋盘上标记还未移动时的位置
+			piece.selected = true;
+			piece.pos = pos;
+			this.enemyLastSelectedPiece = piece;
+			if (eatPiece) eatPiece.die = true;
+			this.invalidate();
+			this.switch();
+		} else {
+			this.active = true;
+		}
+	}
+
 	/**事件监听 */
 	private listener() {
 		this.canvas.addEventListener("mousemove", ({ offsetX, offsetY }) => {
+			if (!this.active) {
+				this.canvas.style.cursor = "";
+				return;
+			};
 			if (this.rule.pointInPieces({ x: offsetX, y: offsetY })) {
 				this.canvas.style.cursor = "pointer";
 			} else {
@@ -110,12 +152,17 @@ class Chess {
 			}
 		});
 		this.canvas.addEventListener("mousedown", ({ offsetX, offsetY }) => {
+			//若此时还没轮到自己下，就不能做任何操作
+			if (!this.active) return;
+
 			let point = { x: offsetX, y: offsetY };
 			let piece = this.rule.pointInPieces(point);
 			if (piece) {//点到了棋子
 				if (this.lastSelectedPiece) this.lastSelectedPiece.selected = false;
+				if (this.enemyLastSelectedPiece) this.enemyLastSelectedPiece.selected = false;
 				piece.selected = true;
 				this.lastSelectedPiece = piece;
+				this.board.markPos();//清除标记
 				this.invalidate();
 			} else {//没有点到棋子，再看是否点到了某行某列
 				let pos = this.board.point2pos(point);
@@ -125,6 +172,9 @@ class Chess {
 						//若res是Piece对象，那么就要将die赋值为true，表示吃掉了该棋子
 						if (res instanceof Piece) res.die = true;
 						this.lastSelectedPiece.pos = pos;
+						this.lastSelectedPiece.selected = false;
+						this.lastSelectedPiece = null;
+						this.switch();
 						this.invalidate();
 					} else {
 						let err = new Error("不能移动到该位置！");
